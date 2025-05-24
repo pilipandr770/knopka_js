@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Voice Widget Demo</title>
+  <link rel="stylesheet" href="widget.css">
+  <style>body{background:#f4f6fa;}</style>
+</head>
+<body>
+  <h1 style="text-align:center;margin-top:40px;">Voice Widget Demo</h1>  <div id="widget-demo"></div>
+  <!-- Подключаем исходные JS-файлы для разработки -->
+  <script src="utils.js"></script>
+  <script src="api-client.js"></script>
+  <script src="voice-recognition.js"></script>
+  <script src="voice-synthesis.js"></script>
+  <script src="voice-widget.js"></script>
+  <!-- Для production используйте только widget.js -->
+  <!-- <script src="widget.js"></script> -->
+  <script>
+    // Автоинициализация виджета для демо
+    window.addEventListener('DOMContentLoaded', function() {
+      if (window.VoiceWidget) {
+        new window.VoiceWidget({ debug: true });
+      }
+    });
+  </script>
+</body>
+</html>

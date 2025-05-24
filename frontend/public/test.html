@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Voice Widget</title>
+    <link rel="stylesheet" href="widget.css">
+</head>
+<body>
+    <h1>Test Voice Widget</h1>
+    <p>Откройте консоль разработчика (F12) для просмотра ошибок.</p>
+    
+    <button id="testTextButton">Тест текстового сообщения</button>
+    <button id="testConfigButton">Тест получения конфигурации</button>
+    
+    <div id="testOutput"></div>
+
+    <!-- Load JavaScript files -->
+    <script src="utils.js"></script>
+    <script src="api-client.js"></script>
+    <script src="voice-recognition.js"></script>
+    <script src="voice-synthesis.js"></script>
+    <script src="voice-widget.js"></script>
+    
+    <script>
+        // Test script
+        document.getElementById('testTextButton').addEventListener('click', async () => {
+            try {
+                console.log('Testing text message...');
+                const client = new VoiceApiClient();
+                const response = await client.sendMessage('Привет, как дела?');
+                console.log('Response:', response);
+                document.getElementById('testOutput').innerHTML = '<p>✅ Тест успешен! Ответ: ' + response.message + '</p>';
+            } catch (error) {
+                console.error('Test failed:', error);
+                document.getElementById('testOutput').innerHTML = '<p>❌ Тест не удался: ' + error.message + '</p>';
+            }
+        });
+        
+        document.getElementById('testConfigButton').addEventListener('click', async () => {
+            try {
+                console.log('Testing config...');
+                const client = new VoiceApiClient();
+                const config = await client.getConfig();
+                console.log('Config:', config);
+                document.getElementById('testOutput').innerHTML = '<p>✅ Конфигурация загружена: ' + JSON.stringify(config) + '</p>';
+            } catch (error) {
+                console.error('Config test failed:', error);
+                document.getElementById('testOutput').innerHTML = '<p>❌ Тест конфигурации не удался: ' + error.message + '</p>';
+            }
+        });
+
+        // Auto-initialize widget
+        console.log('Initializing widget...');
+        try {
+            const widget = new VoiceWidget();
+            console.log('Widget initialized successfully');
+        } catch (error) {
+            console.error('Widget initialization failed:', error);
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,165 @@
+// Simple test page for debugging
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice Widget Debug</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .test-section { margin: 20px 0; padding: 20px; border: 1px solid #ccc; }
+        .error { color: red; }
+        .success { color: green; }
+        button { padding: 10px 15px; margin: 5px; background: #007bff; color: white; border: none; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        #output { margin-top: 10px; padding: 10px; background: #f8f9fa; border: 1px solid #dee2e6; }
+    </style>
+</head>
+<body>
+    <h1>🔧 Voice Widget Debug Page</h1>
+    
+    <div class="test-section">
+        <h2>1. JavaScript Files Loading Test</h2>
+        <button onclick="testJsFiles()">Test JS Loading</button>
+        <div id="js-output"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>2. API Connection Test</h2>
+        <button onclick="testApiConnection()">Test API</button>
+        <div id="api-output"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>3. Text Message Test</h2>
+        <input type="text" id="test-message" placeholder="Введите сообщение" value="Привет!">
+        <button onclick="testTextMessage()">Send Text</button>
+        <div id="text-output"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>4. Voice Recognition Test</h2>
+        <button onclick="testVoicePermission()">Test Mic Permission</button>
+        <button onclick="testVoiceRecording()">Test Recording</button>
+        <div id="voice-output"></div>
+    </div>
+
+    <!-- Load scripts -->
+    <script src="utils.js"></script>
+    <script src="api-client.js"></script>
+    <script src="voice-recognition.js"></script>
+    <script src="voice-synthesis.js"></script>
+    <script src="voice-widget.js"></script>
+
+    <script>
+        let apiClient;
+        let voiceRecognition;
+
+        // Test functions
+        function testJsFiles() {
+            const output = document.getElementById('js-output');
+            const tests = [
+                { name: 'VoiceUtils', obj: window.VoiceUtils },
+                { name: 'VoiceApiClient', obj: window.VoiceApiClient },
+                { name: 'VoiceRecognition', obj: window.VoiceRecognition },
+                { name: 'VoiceSynthesis', obj: window.VoiceSynthesis },
+                { name: 'VoiceWidget', obj: window.VoiceWidget }
+            ];
+            
+            let results = '<h3>JavaScript Objects Test:</h3>';
+            tests.forEach(test => {
+                if (test.obj) {
+                    results += `<div class="success">✅ ${test.name} loaded</div>`;
+                } else {
+                    results += `<div class="error">❌ ${test.name} not found</div>`;
+                }
+            });
+            
+            output.innerHTML = results;
+        }
+
+        async function testApiConnection() {
+            const output = document.getElementById('api-output');
+            output.innerHTML = '<div>Testing API connection...</div>';
+            
+            try {
+                const response = await fetch('/api/config');
+                const data = await response.json();
+                
+                if (data.success) {
+                    output.innerHTML = `<div class="success">✅ API Connected<br>Config: ${JSON.stringify(data.data)}</div>`;
+                } else {
+                    output.innerHTML = `<div class="error">❌ API Error: ${data.error}</div>`;
+                }
+            } catch (error) {
+                output.innerHTML = `<div class="error">❌ Connection Error: ${error.message}</div>`;
+            }
+        }
+
+        async function testTextMessage() {
+            const output = document.getElementById('text-output');
+            const message = document.getElementById('test-message').value;
+            
+            output.innerHTML = '<div>Sending message...</div>';
+            
+            try {
+                if (!apiClient) {
+                    apiClient = new VoiceApiClient();
+                }
+                
+                const response = await apiClient.sendMessage(message);
+                output.innerHTML = `<div class="success">✅ Message sent!<br>Response: ${response.message}</div>`;
+                
+            } catch (error) {
+                output.innerHTML = `<div class="error">❌ Message Error: ${error.message}</div>`;
+                console.error('Text message error:', error);
+            }
+        }
+
+        async function testVoicePermission() {
+            const output = document.getElementById('voice-output');
+            
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                stream.getTracks().forEach(track => track.stop());
+                output.innerHTML = '<div class="success">✅ Microphone permission granted</div>';
+            } catch (error) {
+                output.innerHTML = `<div class="error">❌ Microphone Error: ${error.message}</div>`;
+            }
+        }
+
+        async function testVoiceRecording() {
+            const output = document.getElementById('voice-output');
+            
+            try {
+                if (!voiceRecognition) {
+                    voiceRecognition = new VoiceRecognition({
+                        onResult: (audioData) => {
+                            output.innerHTML += '<div class="success">✅ Audio recorded successfully</div>';
+                        },
+                        onError: (error) => {
+                            output.innerHTML += `<div class="error">❌ Recording Error: ${error}</div>`;
+                        }
+                    });
+                }
+                
+                output.innerHTML = '<div>Starting voice recording test...</div>';
+                await voiceRecognition.startRecording();
+                
+                setTimeout(() => {
+                    voiceRecognition.stopRecording();
+                }, 3000);
+                
+            } catch (error) {
+                output.innerHTML = `<div class="error">❌ Voice Recording Error: ${error.message}</div>`;
+            }
+        }
+
+        // Auto-run basic tests
+        window.addEventListener('load', () => {
+            console.log('Page loaded, running basic tests...');
+            testJsFiles();
+        });
+    </script>
+</body>
+</html>

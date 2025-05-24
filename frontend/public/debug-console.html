@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice Debug Console</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            margin: 0;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #00ff00;
+        }
+        .console {
+            background: #000;
+            border: 2px solid #00ff00;
+            border-radius: 10px;
+            padding: 20px;
+            min-height: 500px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        .log-entry {
+            margin: 5px 0;
+            padding: 5px;
+            border-left: 3px solid #333;
+            padding-left: 10px;
+        }
+        .log-info { border-left-color: #00ff00; color: #00ff00; }
+        .log-error { border-left-color: #ff0000; color: #ff6666; }
+        .log-warning { border-left-color: #ffaa00; color: #ffcc66; }
+        .log-success { border-left-color: #00aa00; color: #66ff66; }
+        .controls {
+            margin: 20px 0;
+            text-align: center;
+        }
+        button {
+            background: #333;
+            color: #00ff00;
+            border: 2px solid #00ff00;
+            padding: 10px 20px;
+            margin: 5px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+        }
+        button:hover {
+            background: #00ff00;
+            color: #000;
+        }
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin: 20px 0;
+        }
+        .status-item {
+            background: #222;
+            padding: 10px;
+            border-radius: 5px;
+            border-left: 4px solid #666;
+        }
+        .status-item.ok { border-left-color: #00ff00; }
+        .status-item.error { border-left-color: #ff0000; }
+        .status-item.warning { border-left-color: #ffaa00; }
+        h1, h2 {
+            color: #00ff00;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔧 Voice Widget Debug Console</h1>
+    
+    <div class="status-grid" id="statusGrid">
+        <!-- Status items will be added here -->
+    </div>
+
+    <div class="controls">
+        <button onclick="runFullDiagnostic()">🔍 Full Diagnostic</button>
+        <button onclick="testWidgetInit()">🚀 Test Widget Init</button>
+        <button onclick="testTTS()">🔊 Test TTS</button>
+        <button onclick="testAutoSpeech()">🎤 Test Auto Speech</button>
+        <button onclick="clearConsole()">🗑️ Clear</button>
+    </div>
+
+    <div class="console" id="console">
+        <div class="log-entry log-info">[SYSTEM] Voice Widget Debug Console initialized</div>
+        <div class="log-entry log-info">[SYSTEM] Click buttons above to run diagnostics</div>
+    </div>
+
+    <!-- Widget scripts -->
+    <script src="/utils.js"></script>
+    <script src="/api-client.js"></script>
+    <script src="/voice-recognition.js"></script>
+    <script src="/voice-synthesis.js"></script>
+    <script src="/voice-widget.js"></script>
+
+    <script>
+        let widget = null;
+        const console_div = document.getElementById('console');
+        const statusGrid = document.getElementById('statusGrid');
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${type}`;
+            entry.textContent = `[${timestamp}] ${message}`;
+            console_div.appendChild(entry);
+            console_div.scrollTop = console_div.scrollHeight;
+            
+            // Also log to browser console
+            console.log(`[Debug] ${message}`);
+        }
+
+        function updateStatus(id, title, status, message) {
+            let item = document.getElementById(`status-${id}`);
+            if (!item) {
+                item = document.createElement('div');
+                item.id = `status-${id}`;
+                item.className = 'status-item';
+                statusGrid.appendChild(item);
+            }
+            
+            item.className = `status-item ${status}`;
+            item.innerHTML = `<strong>${title}</strong><br>${message}`;
+        }
+
+        function clearConsole() {
+            console_div.innerHTML = '<div class="log-entry log-info">[SYSTEM] Console cleared</div>';
+        }
+
+        async function runFullDiagnostic() {
+            log('🔍 Starting full diagnostic...', 'info');
+            
+            // 1. Check browser support
+            log('Checking browser support...', 'info');
+            
+            const speechSynthesisSupported = 'speechSynthesis' in window;
+            updateStatus('speechSynthesis', 'Speech Synthesis', 
+                speechSynthesisSupported ? 'ok' : 'error',
+                speechSynthesisSupported ? 'Supported' : 'Not supported');
+            log(`Speech Synthesis: ${speechSynthesisSupported ? 'OK' : 'NOT SUPPORTED'}`, speechSynthesisSupported ? 'success' : 'error');
+            
+            const audioSupported = !!window.Audio;
+            updateStatus('audio', 'Audio API', 
+                audioSupported ? 'ok' : 'error',
+                audioSupported ? 'Supported' : 'Not supported');
+            log(`Audio API: ${audioSupported ? 'OK' : 'NOT SUPPORTED'}`, audioSupported ? 'success' : 'error');
+            
+            const mediaRecorderSupported = !!window.MediaRecorder;
+            updateStatus('mediaRecorder', 'MediaRecorder', 
+                mediaRecorderSupported ? 'ok' : 'error',
+                mediaRecorderSupported ? 'Supported' : 'Not supported');
+            log(`MediaRecorder: ${mediaRecorderSupported ? 'OK' : 'NOT SUPPORTED'}`, mediaRecorderSupported ? 'success' : 'error');
+            
+            // 2. Check scripts loading
+            log('Checking script dependencies...', 'info');
+            
+            const utilsLoaded = typeof window.VoiceUtils !== 'undefined';
+            updateStatus('utils', 'VoiceUtils', 
+                utilsLoaded ? 'ok' : 'error',
+                utilsLoaded ? 'Loaded' : 'Not loaded');
+            log(`VoiceUtils: ${utilsLoaded ? 'LOADED' : 'NOT LOADED'}`, utilsLoaded ? 'success' : 'error');
+            
+            const apiClientLoaded = typeof window.VoiceApiClient !== 'undefined';
+            updateStatus('apiClient', 'VoiceApiClient', 
+                apiClientLoaded ? 'ok' : 'error',
+                apiClientLoaded ? 'Loaded' : 'Not loaded');
+            log(`VoiceApiClient: ${apiClientLoaded ? 'LOADED' : 'NOT LOADED'}`, apiClientLoaded ? 'success' : 'error');
+            
+            const voiceRecognitionLoaded = typeof window.VoiceRecognition !== 'undefined';
+            updateStatus('voiceRecognition', 'VoiceRecognition', 
+                voiceRecognitionLoaded ? 'ok' : 'error',
+                voiceRecognitionLoaded ? 'Loaded' : 'Not loaded');
+            log(`VoiceRecognition: ${voiceRecognitionLoaded ? 'LOADED' : 'NOT LOADED'}`, voiceRecognitionLoaded ? 'success' : 'error');
+            
+            const voiceSynthesisLoaded = typeof window.VoiceSynthesis !== 'undefined';
+            updateStatus('voiceSynthesis', 'VoiceSynthesis', 
+                voiceSynthesisLoaded ? 'ok' : 'error',
+                voiceSynthesisLoaded ? 'Loaded' : 'Not loaded');
+            log(`VoiceSynthesis: ${voiceSynthesisLoaded ? 'LOADED' : 'NOT LOADED'}`, voiceSynthesisLoaded ? 'success' : 'error');
+            
+            const voiceWidgetLoaded = typeof window.VoiceWidget !== 'undefined';
+            updateStatus('voiceWidget', 'VoiceWidget', 
+                voiceWidgetLoaded ? 'ok' : 'error',
+                voiceWidgetLoaded ? 'Loaded' : 'Not loaded');
+            log(`VoiceWidget: ${voiceWidgetLoaded ? 'LOADED' : 'NOT LOADED'}`, voiceWidgetLoaded ? 'success' : 'error');
+            
+            // 3. Test API connectivity
+            log('Testing API connectivity...', 'info');
+            try {
+                const response = await fetch('/api/config');
+                const configOk = response.ok;
+                updateStatus('apiConfig', 'API Config', 
+                    configOk ? 'ok' : 'error',
+                    configOk ? 'Accessible' : 'Not accessible');
+                log(`API Config: ${configOk ? 'OK' : 'FAILED'}`, configOk ? 'success' : 'error');
+            } catch (error) {
+                updateStatus('apiConfig', 'API Config', 'error', 'Network error');
+                log(`API Config: NETWORK ERROR - ${error.message}`, 'error');
+            }
+            
+            // 4. Test TTS API
+            log('Testing TTS API...', 'info');
+            try {
+                const response = await fetch('/api/tts', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text: 'test' })
+                });
+                const ttsOk = response.ok;
+                updateStatus('apiTTS', 'TTS API', 
+                    ttsOk ? 'ok' : 'error',
+                    ttsOk ? 'Working' : 'Not working');
+                log(`TTS API: ${ttsOk ? 'OK' : 'FAILED'}`, ttsOk ? 'success' : 'error');
+            } catch (error) {
+                updateStatus('apiTTS', 'TTS API', 'error', 'Network error');
+                log(`TTS API: NETWORK ERROR - ${error.message}`, 'error');
+            }
+            
+            log('🏁 Full diagnostic complete', 'success');
+        }
+
+        async function testWidgetInit() {
+            log('🚀 Testing widget initialization...', 'info');
+            
+            try {
+                widget = new window.VoiceWidget({
+                    debug: true,
+                    autoSpeak: true,
+                    autoInit: true
+                });
+                
+                updateStatus('widgetInit', 'Widget Init', 'ok', 'Initialized');
+                log('✅ Widget initialized successfully', 'success');
+                
+            } catch (error) {
+                updateStatus('widgetInit', 'Widget Init', 'error', error.message);
+                log(`❌ Widget initialization failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function testTTS() {
+            log('🔊 Testing TTS directly...', 'info');
+            
+            try {
+                const response = await fetch('/api/tts', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text: 'Это тест синтеза речи' })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    log('✅ TTS API returned audio data', 'success');
+                    
+                    const audio = document.createElement('audio');
+                    audio.src = `data:audio/mp3;base64,${data.data.audio}`;
+                    
+                    audio.onloadstart = () => log('🔄 Audio loading...', 'info');
+                    audio.oncanplay = () => log('🎵 Audio ready to play', 'success');
+                    audio.onplay = () => log('▶️ Audio started playing', 'success');
+                    audio.onended = () => log('⏹️ Audio finished playing', 'success');
+                    audio.onerror = (e) => log(`❌ Audio error: ${e.message}`, 'error');
+                    
+                    await audio.play();
+                } else {
+                    log(`❌ TTS API error: ${data.error}`, 'error');
+                }
+                
+            } catch (error) {
+                log(`❌ TTS test failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function testAutoSpeech() {
+            if (!widget) {
+                log('❌ Widget not initialized. Run widget init first.', 'error');
+                return;
+            }
+            
+            log('🎤 Testing auto speech functionality...', 'info');
+            
+            try {
+                const testMessage = 'Тест автоматической озвучки работает корректно';
+                log(`📝 Test message: "${testMessage}"`, 'info');
+                
+                if (widget.options.autoSpeak) {
+                    log('✅ Auto speech is enabled', 'success');
+                    log('🔊 Starting speech synthesis...', 'info');
+                    
+                    await widget.speakAssistantResponse(testMessage);
+                    log('✅ Auto speech test completed', 'success');
+                } else {
+                    log('⚠️ Auto speech is disabled in widget options', 'warning');
+                }
+                
+            } catch (error) {
+                log(`❌ Auto speech test failed: ${error.message}`, 'error');
+            }
+        }
+
+        // Override console methods to capture all logs
+        const originalLog = console.log;
+        const originalError = console.error;
+        const originalWarn = console.warn;
+
+        console.log = function(...args) {
+            const message = args.join(' ');
+            if (message.includes('[VoiceWidget]')) {
+                log(message.replace('[VoiceWidget]', ''), 'info');
+            }
+            originalLog.apply(console, args);
+        };
+
+        console.error = function(...args) {
+            const message = args.join(' ');
+            if (message.includes('[VoiceWidget]')) {
+                log(message.replace('[VoiceWidget]', ''), 'error');
+            }
+            originalError.apply(console, args);
+        };
+
+        console.warn = function(...args) {
+            const message = args.join(' ');
+            if (message.includes('[VoiceWidget]')) {
+                log(message.replace('[VoiceWidget]', ''), 'warning');
+            }
+            originalWarn.apply(console, args);
+        };
+
+        // Auto-run diagnostic on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            setTimeout(runFullDiagnostic, 1000);
+        });
+    </script>
+</body>
+</html>
