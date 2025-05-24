@@ -1,6 +1,0 @@
-# requirements.txt для backend (Python, если потребуется)
-# Если проект только на Node.js, этот файл не нужен.
-# Пример для Python-поддержки (например, для Whisper или TTS через Python):
-openai
-flask
-python-dotenv

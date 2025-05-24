@@ -10,3 +10,9 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      - key: OPENAI_API_KEY
+        value: your_openai_api_key_here
+      - key: ASSISTANT_ID
+        value: your_assistant_id_here
+      - key: PORT
+        value: 10000
