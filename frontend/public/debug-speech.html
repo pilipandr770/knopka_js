@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Отладка Speech Events</title>
+    <style>
+        body {
+            font-family: monospace;
+            margin: 20px;
+            background: #1e1e1e;
+            color: #fff;
+        }
+        .event {
+            padding: 5px;
+            margin: 2px 0;
+            border-left: 3px solid #00ff00;
+            background: rgba(0, 255, 0, 0.1);
+        }
+        .error {
+            border-left-color: #ff0000;
+            background: rgba(255, 0, 0, 0.1);
+        }
+        .warning {
+            border-left-color: #ffff00;
+            background: rgba(255, 255, 0, 0.1);
+        }
+        .clear-btn {
+            background: #333;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 Отладка Speech Synthesis Events</h1>
+    <button class="clear-btn" onclick="clearLog()">Очистить лог</button>
+    <div id="log"></div>
+
+    <script>
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const time = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.className = `event ${type}`;
+            entry.innerHTML = `[${time}] ${message}`;
+            logDiv.appendChild(entry);
+            logDiv.scrollTop = logDiv.scrollHeight;
+            console.log(`[${type}] ${message}`);
+        }
+
+        function clearLog() {
+            document.getElementById('log').innerHTML = '';
+        }
+
+        // Мониторинг speechSynthesis
+        if ('speechSynthesis' in window) {
+            log('✅ speechSynthesis доступен');
+            
+            // Оригинальный speak метод
+            const originalSpeak = speechSynthesis.speak;
+            speechSynthesis.speak = function(utterance) {
+                log(`🎤 speechSynthesis.speak() вызван: "${utterance.text.substring(0, 50)}..."`);
+                
+                // Добавляем обработчики событий
+                utterance.onstart = function(event) {
+                    log('🎵 SpeechSynthesis: onstart triggered');
+                    if (originalOnStart) originalOnStart.call(this, event);
+                };
+                
+                utterance.onend = function(event) {
+                    log('🔚 SpeechSynthesis: onend triggered');
+                    if (originalOnEnd) originalOnEnd.call(this, event);
+                };
+                
+                utterance.onerror = function(event) {
+                    log(`❌ SpeechSynthesis: onerror triggered - ${event.error}`, 'error');
+                    if (originalOnError) originalOnError.call(this, event);
+                };
+
+                utterance.onpause = function(event) {
+                    log('⏸️ SpeechSynthesis: onpause triggered', 'warning');
+                };
+
+                utterance.onresume = function(event) {
+                    log('▶️ SpeechSynthesis: onresume triggered');
+                };
+                
+                // Сохраняем оригинальные обработчики
+                const originalOnStart = utterance.onstart;
+                const originalOnEnd = utterance.onend;
+                const originalOnError = utterance.onerror;
+                
+                return originalSpeak.call(this, utterance);
+            };
+            
+            log('🔍 speechSynthesis.speak() перехвачен');
+        } else {
+            log('❌ speechSynthesis НЕ доступен', 'error');
+        }
+
+        // Мониторинг Audio API
+        const originalAudio = window.Audio;
+        window.Audio = function(src) {
+            const audio = new originalAudio(src);
+            log(`🎵 new Audio() создан: ${src ? src.substring(0, 50) + '...' : 'no src'}`);
+            
+            audio.addEventListener('loadstart', () => log('🔄 Audio: loadstart'));
+            audio.addEventListener('canplay', () => log('✅ Audio: canplay'));
+            audio.addEventListener('play', () => log('▶️ Audio: play'));
+            audio.addEventListener('pause', () => log('⏸️ Audio: pause'));
+            audio.addEventListener('ended', () => log('🔚 Audio: ended'));
+            audio.addEventListener('error', (e) => log(`❌ Audio: error - ${e.message}`, 'error'));
+            
+            return audio;
+        };
+        
+        log('🔍 Audio constructor перехвачен');
+        log('🚀 Мониторинг активирован - откройте виджет и проверьте озвучку');
+    </script>
+</body>
+</html>

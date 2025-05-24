@@ -174,18 +174,33 @@ class VoiceWidget {  constructor(options = {}) {
   }  async handleSendMessage() {
     const text = this.elements.input.value.trim();
     if (!text) return;
+    
     this.elements.input.value = '';
     this.renderMessage(text, 'user');
+    
+    // Показываем индикатор печати
+    this.showTypingIndicator();
+    
     try {
       const response = await this.apiClient.sendMessage(text);
+      
+      // Скрываем индикатор печати
+      this.hideTypingIndicator();
+      
       this.renderMessage(response.message, 'assistant');
       
       // Автоматическая озвучка ответа ассистента
+      window.VoiceUtils.log('Checking autoSpeak option', { autoSpeak: this.options.autoSpeak });
       if (this.options.autoSpeak) {
+        window.VoiceUtils.log('Starting automatic speech for assistant response');
         await this.speakAssistantResponse(response.message);
+      } else {
+        window.VoiceUtils.log('AutoSpeak is disabled, skipping speech');
       }
       
     } catch (error) {
+      this.hideTypingIndicator();
+      window.VoiceUtils.error('Error in handleSendMessage', error);
       window.VoiceUtils.showNotification('Ошибка отправки сообщения', 'error');
     }
   }
@@ -204,23 +219,19 @@ class VoiceWidget {  constructor(options = {}) {
   async startVoiceRecording() {
     if (this.isRecording) return;
     try {
-      this.isRecording = true;
-      this.elements.recordingAnimation.style.display = 'flex';
+      this.setRecordingState(true);
       await this.voiceRecognition.startRecording();
     } catch (error) {
-      this.isRecording = false;
-      this.elements.recordingAnimation.style.display = 'none';
+      this.setRecordingState(false);
       window.VoiceUtils.showNotification('Ошибка доступа к микрофону', 'error');
     }
   }
 
   stopVoiceRecording() {
     if (!this.isRecording) return;
-    this.isRecording = false;
-    this.elements.recordingAnimation.style.display = 'none';
+    this.setRecordingState(false);
     this.voiceRecognition.stopRecording();
-  }
-  async handleVoiceResult(audioData) {
+  }  async handleVoiceResult(audioData) {
     this.renderMessage('...', 'user');
     try {
       const response = await this.apiClient.sendVoiceMessage(audioData);
@@ -233,16 +244,23 @@ class VoiceWidget {  constructor(options = {}) {
       }
       
       this.renderMessage(response.message, 'assistant');
-        // Автоматическая озвучка: используем сначала готовое аудио, потом TTS
+      
+      // Автоматическая озвучка: используем сначала готовое аудио, потом TTS
+      window.VoiceUtils.log('Voice result - checking autoSpeak', { autoSpeak: this.options.autoSpeak });
       if (this.options.autoSpeak) {
         if (response.audioResponse) {
+          window.VoiceUtils.log('Playing audio response from server');
           await this.voiceSynthesis.playAudio(response.audioResponse);
         } else {
+          window.VoiceUtils.log('No audio response from server, using TTS');
           await this.speakAssistantResponse(response.message);
         }
+      } else {
+        window.VoiceUtils.log('AutoSpeak disabled for voice input');
       }
       
     } catch (error) {
+      window.VoiceUtils.error('Error in handleVoiceResult', error);
       window.VoiceUtils.showNotification('Ошибка голосового запроса', 'error');
     }
   }
@@ -250,13 +268,14 @@ class VoiceWidget {  constructor(options = {}) {
   handleVoiceError(error) {
     window.VoiceUtils.showNotification('Ошибка записи голоса', 'error');
   }
-
   handleRecordingStart() {
-    this.elements.recordingAnimation.style.display = 'flex';
+    window.VoiceUtils.log('Recording started');
+    this.setRecordingState(true);
   }
 
   handleRecordingEnd() {
-    this.elements.recordingAnimation.style.display = 'none';
+    window.VoiceUtils.log('Recording ended');
+    this.setRecordingState(false);
   }
 
   handleVolumeChange(volume) {
@@ -264,43 +283,49 @@ class VoiceWidget {  constructor(options = {}) {
   }
 
   handleSpeechStart() {
-    // Можно добавить индикатор воспроизведения
+    window.VoiceUtils.log('Speech synthesis started');
+    this.setSpeakingState(true);
   }
 
   handleSpeechEnd() {
-    // Можно скрыть индикатор воспроизведения
-  }
-  handleSpeechError(error) {
+    window.VoiceUtils.log('Speech synthesis ended');
+    this.setSpeakingState(false);
+  }  handleSpeechError(error) {
     window.VoiceUtils.showNotification('Ошибка синтеза речи', 'error');
   }
 
   async speakAssistantResponse(text) {
     try {
-      // Показываем индикатор воспроизведения
-      this.showSpeechIndicator(true);
+      window.VoiceUtils.log('Starting to speak assistant response', { text: text.substring(0, 50) + '...' });
       
-      // Сначала пытаемся использовать встроенный TTS браузера
+      // НЕ устанавливаем состояние здесь - это будет делать обработчик событий VoiceSynthesis
+      
+      // Сначала пытаемся использовать встроенный TTS браузера для коротких текстов
       if ('speechSynthesis' in window && text.length <= 200) {
+        window.VoiceUtils.log('Using browser TTS for short text');
         await this.voiceSynthesis.speakText(text);
       } else {
         // Для длинных текстов используем OpenAI TTS
+        window.VoiceUtils.log('Using OpenAI TTS for long text');
         try {
           const audioBase64 = await this.apiClient.convertTextToSpeech(text);
           await this.voiceSynthesis.playAudio(audioBase64);
         } catch (error) {
           // Если TTS API не работает, используем браузерный TTS как fallback
-          window.VoiceUtils.log('TTS API failed, using browser TTS', error);
+          window.VoiceUtils.log('TTS API failed, using browser TTS as fallback', error);
           await this.voiceSynthesis.speakText(text);
         }
       }
       
+      window.VoiceUtils.log('Assistant response speech completed');
+      
     } catch (error) {
       window.VoiceUtils.error('Failed to speak assistant response', error);
       window.VoiceUtils.showNotification('Ошибка воспроизведения речи', 'warning');
-    } finally {
-      // Скрываем индикатор воспроизведения
-      this.showSpeechIndicator(false);
+      // При ошибке убираем состояние воспроизведения
+      this.setSpeakingState(false);
     }
+    // НЕ убираем состояние в finally - это делает обработчик onEnd
   }
 
   showSpeechIndicator(show) {
@@ -331,6 +356,151 @@ class VoiceWidget {  constructor(options = {}) {
       if (indicator) {
         indicator.style.display = 'none';
       }
+    }
+  }
+
+  // Управление визуальными состояниями и анимациями
+  setRecordingState(isRecording) {
+    this.isRecording = isRecording;
+    
+    // Анимация основной кнопки
+    this.elements.button.classList.toggle('recording', isRecording);
+    
+    // Анимация кнопки записи в панели
+    if (this.elements.voiceButton) {
+      this.elements.voiceButton.classList.toggle('recording', isRecording);
+    }
+    
+    // Показать/скрыть анимацию записи
+    if (this.elements.recordingAnimation) {
+      this.elements.recordingAnimation.classList.toggle('active', isRecording);
+    }
+    
+    // Визуальная обратная связь
+    if (isRecording) {
+      this.showRecordingFeedback();
+    } else {
+      this.hideRecordingFeedback();
+    }
+  }
+  
+  setSpeakingState(isSpeaking) {
+    this.isSpeaking = isSpeaking;
+    
+    // Анимация основной кнопки
+    this.elements.button.classList.toggle('speaking', isSpeaking);
+    
+    if (isSpeaking) {
+      this.showSpeakingFeedback();
+      this.addSoundWaves();
+    } else {
+      this.hideSpeakingFeedback();
+      this.removeSoundWaves();
+    }
+  }
+  
+  showRecordingFeedback() {
+    // Показываем статус записи
+    this.showStatus('🎤 Говорите...', 'recording');
+    
+    // Добавляем эффект пульсации
+    if (navigator.vibrate) {
+      navigator.vibrate(50); // Вибрация на мобильных
+    }
+  }
+  
+  hideRecordingFeedback() {
+    this.hideStatus();
+  }
+  
+  showSpeakingFeedback() {
+    this.showStatus('🔊 Воспроизведение...', 'speaking');
+  }
+  
+  hideSpeakingFeedback() {
+    this.hideStatus();
+  }
+  
+  addSoundWaves() {
+    // Создаем анимацию звуковых волн в основной кнопке
+    const soundWaves = document.createElement('div');
+    soundWaves.className = 'sound-waves';
+    soundWaves.innerHTML = `
+      <div class="sound-wave"></div>
+      <div class="sound-wave"></div>
+      <div class="sound-wave"></div>
+      <div class="sound-wave"></div>
+      <div class="sound-wave"></div>
+    `;
+    
+    // Скрываем иконку микрофона и показываем волны
+    const icon = this.elements.button.querySelector('.voice-widget-icon');
+    if (icon) {
+      icon.style.opacity = '0';
+      this.elements.button.appendChild(soundWaves);
+    }
+  }
+  
+  removeSoundWaves() {
+    // Убираем волны и показываем иконку
+    const soundWaves = this.elements.button.querySelector('.sound-waves');
+    if (soundWaves) {
+      soundWaves.remove();
+    }
+    
+    const icon = this.elements.button.querySelector('.voice-widget-icon');
+    if (icon) {
+      icon.style.opacity = '1';
+    }
+  }
+  
+  showStatus(message, type = 'info') {
+    // Убираем предыдущий статус
+    this.hideStatus();
+    
+    // Создаем новый статус
+    const statusDiv = document.createElement('div');
+    statusDiv.className = `status-message ${type}`;
+    statusDiv.innerHTML = message;
+    
+    // Добавляем в панель сообщений
+    if (this.elements.messages) {
+      this.elements.messages.appendChild(statusDiv);
+      this.elements.messages.scrollTop = this.elements.messages.scrollHeight;
+    }
+    
+    this.currentStatus = statusDiv;
+  }
+  
+  hideStatus() {
+    if (this.currentStatus) {
+      this.currentStatus.remove();
+      this.currentStatus = null;
+    }
+  }
+  
+  showTypingIndicator() {
+    // Показываем индикатор печати
+    const typingDiv = document.createElement('div');
+    typingDiv.className = 'typing-indicator';
+    typingDiv.innerHTML = `
+      <div class="typing-dots">
+        <div class="typing-dot"></div>
+        <div class="typing-dot"></div>
+        <div class="typing-dot"></div>
+      </div>
+      <span style="margin-left: 8px; color: #666;">Ассистент печатает...</span>
+    `;
+    
+    this.elements.messages.appendChild(typingDiv);
+    this.elements.messages.scrollTop = this.elements.messages.scrollHeight;
+    this.typingIndicator = typingDiv;
+  }
+  
+  hideTypingIndicator() {
+    if (this.typingIndicator) {
+      this.typingIndicator.remove();
+      this.typingIndicator = null;
     }
   }
 }

@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Простой тест AutoSpeak</title>
+    <link rel="stylesheet" href="widget-animated.css">
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: #f0f0f0;
+            font-family: Arial, sans-serif;
+        }
+        .test-area {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .btn:hover {
+            background: #0056b3;
+        }
+        .log {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 10px;
+            margin: 10px 0;
+            height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-area">
+        <h2>🔊 Простой тест AutoSpeak</h2>
+        
+        <button class="btn" onclick="sendTestMessage()">📝 Отправить тестовое сообщение</button>
+        <button class="btn" onclick="toggleAutoSpeak()">🔄 Переключить AutoSpeak</button>
+        <button class="btn" onclick="clearLog()">🗑️ Очистить лог</button>
+        
+        <div>
+            <strong>AutoSpeak:</strong> <span id="autoSpeakStatus">включен</span>
+        </div>
+        
+        <div class="log" id="log"></div>
+    </div>
+
+    <!-- Voice Widget Scripts -->
+    <script src="utils.js"></script>
+    <script src="api-client.js"></script>
+    <script src="voice-recognition.js"></script>
+    <script src="voice-synthesis.js"></script>
+    <script src="voice-widget.js"></script>
+
+    <script>
+        let widget;
+        
+        function log(message) {
+            const logDiv = document.getElementById('log');
+            const time = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.innerHTML = `[${time}] ${message}`;
+            logDiv.appendChild(entry);
+            logDiv.scrollTop = logDiv.scrollHeight;
+            console.log(message);
+        }
+        
+        function clearLog() {
+            document.getElementById('log').innerHTML = '';
+        }
+        
+        function updateAutoSpeakStatus() {
+            const status = widget ? (widget.options.autoSpeak ? 'включен' : 'выключен') : 'не инициализирован';
+            document.getElementById('autoSpeakStatus').textContent = status;
+        }
+        
+        function toggleAutoSpeak() {
+            if (widget) {
+                widget.options.autoSpeak = !widget.options.autoSpeak;
+                log(`🔄 AutoSpeak ${widget.options.autoSpeak ? 'включен' : 'выключен'}`);
+                updateAutoSpeakStatus();
+            }
+        }
+        
+        async function sendTestMessage() {
+            if (!widget) {
+                log('❌ Виджет не инициализирован');
+                return;
+            }
+            
+            log('📤 Отправляем тестовое сообщение...');
+            
+            try {
+                // Открываем панель
+                if (!widget.isOpen) {
+                    widget.togglePanel();
+                    log('📱 Панель виджета открыта');
+                }
+                
+                // Устанавливаем текст
+                const testText = 'Привет! Это тестовое сообщение для проверки автоматической озвучки.';
+                widget.elements.input.value = testText;
+                log(`💬 Текст установлен: "${testText}"`);
+                
+                // Отправляем сообщение
+                log('🚀 Вызываем handleSendMessage()...');
+                await widget.handleSendMessage();
+                
+                log('✅ handleSendMessage() завершен');
+                
+            } catch (error) {
+                log(`❌ Ошибка: ${error.message}`);
+            }
+        }
+        
+        // Инициализация
+        log('🚀 Инициализация виджета...');
+        
+        try {
+            widget = new VoiceWidget({
+                debug: true,
+                autoSpeak: true,
+                preferOpenAITTS: false,
+                autoInit: true
+            });
+            
+            log('✅ Виджет создан');
+            
+            // Ждем инициализации
+            setTimeout(() => {
+                if (widget.isInitialized) {
+                    log('✅ Виджет инициализирован');
+                    updateAutoSpeakStatus();
+                    
+                    // Перехватываем метод speakAssistantResponse для отладки
+                    const originalSpeak = widget.speakAssistantResponse.bind(widget);
+                    widget.speakAssistantResponse = async function(text) {
+                        log(`🎵 speakAssistantResponse() вызван с текстом: "${text.substring(0, 50)}..."`);
+                        log(`🔍 autoSpeak настройка: ${this.options.autoSpeak}`);
+                        
+                        try {
+                            const result = await originalSpeak(text);
+                            log('✅ speakAssistantResponse() завершен успешно');
+                            return result;
+                        } catch (error) {
+                            log(`❌ speakAssistantResponse() ошибка: ${error.message}`);
+                            throw error;
+                        }
+                    };
+                    
+                    log('🔍 Метод speakAssistantResponse() перехвачен для отладки');
+                    
+                } else {
+                    log('❌ Виджет не инициализирован через 2 секунды');
+                }
+            }, 2000);
+            
+        } catch (error) {
+            log(`❌ Ошибка создания виджета: ${error.message}`);
+        }
+    </script>
+</body>
+</html>
