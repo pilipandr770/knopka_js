@@ -6,9 +6,7 @@
   "scripts": {
     "start": "node backend/server.js",
     "dev": "nodemon backend/server.js",
-    "build": "node build/build-widget.js",
-    "test": "jest",
-    "postinstall": "npm run build"
+    "test": "jest"
   },
   "keywords": ["voice", "widget", "openai", "assistant", "chat"],
   "author": "Your Name",
